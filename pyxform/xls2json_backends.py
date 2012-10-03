@@ -1,4 +1,5 @@
 import xlrd
+from xlrd import XLRDError
 from collections import defaultdict
 import csv
 import cStringIO
@@ -79,12 +80,12 @@ def xls_to_dict(path_or_file):
                     col_dict[key] = xls_value_from_sheet(sheet, row, column)
 
                 # pass 1: make sure choice_labels are unique, while keeping the paired prev_choice_label consistent 
-                def f((l1,l2), (x1,x2)):
-                    if x1 in l1: return (l1,l2)
-                    else: return (l1 + [x1], l2 + [x2]) 
-                zipped = reduce(f, zip(col_dict["choice_labels"], col_dict["prev_choice_labels"] or col_dict["choice_labels"]), ([], []))
-                col_dict["choice_labels"] = zipped[0]
-                if column > 1: col_dict["prev_choice_labels"] = zipped[1]
+                def f(l, (x1,x2)):
+                    if (x1,x2) in l: return l
+                    else: return l + [(x1,x2)]
+                zipped = reduce(f, zip(col_dict["choice_labels"], col_dict["prev_choice_labels"] or col_dict["choice_labels"]), [])
+                col_dict["choice_labels"] = [a for a,b in zipped]
+                if column > 1: col_dict["prev_choice_labels"] = [b for a,b in zipped]
                 # end make things unique
             result.append(col_dict)
 
@@ -122,10 +123,13 @@ def xls_to_dict(path_or_file):
                     "bind": {u'calculate' : calc_formula_string}}} )
             result2.append({"stopper" : level['name']})
         return result2
-    if isinstance(path_or_file, basestring):
-        workbook = xlrd.open_workbook(filename=path_or_file)
-    else:
-        workbook = xlrd.open_workbook(file_contents=path_or_file.read())
+    try:
+        if isinstance(path_or_file, basestring):
+            workbook = xlrd.open_workbook(filename=path_or_file)
+        else:
+            workbook = xlrd.open_workbook(file_contents=path_or_file.read())
+    except XLRDError, e:
+        raise PyXFormError("Error reading .xls file: %s" % e.message)
 
     result = {}
     for sheet in workbook.sheets():
