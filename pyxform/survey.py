@@ -35,6 +35,7 @@ class Survey(Section):
             u"_translations": dict,
             u"submission_url": unicode,
             u"public_key": unicode,
+            u"omit_instanceID": bool,
             u"instance_xmlns": unicode
             }
         )
@@ -72,18 +73,23 @@ class Survey(Section):
         """
         self._setup_translations()
         self._setup_media()
+        self._add_empty_translations()
         model_children = [node("instance", self.xml_instance())] + self.xml_bindings()
         if self._translations:
             model_children.insert(0, self.itext())
-        if self.submission_url:
-            #We need to add a unique form instance id if the form is to be submitted. 
-            model_children.append(node("bind", nodeset="/"+self.name+"/meta/instanceID", type="string", readonly="true()", calculate="concat('uuid:', uuid())"))
-            
+        if self.submission_url or self.public_key:
+            submission_attrs = dict()
+            if self.submission_url:
+                submission_attrs["action"] = self.submission_url
             if self.public_key:
-                submission_node = node("submission", method="form-data-post", action=self.submission_url, base64RsaPublicKey=self.public_key)
-            else:
-                submission_node = node("submission", method="form-data-post", action=self.submission_url)
+                if self.omit_instanceID:
+                    raise PyXFormError("Cannot omit instanceID, it is required for encryption.")
+                submission_attrs["base64RsaPublicKey"] = self.public_key
+            submission_node = node("submission", method="form-data-post", **submission_attrs)
             model_children.insert(0, submission_node)
+        if not self.omit_instanceID:
+            #Warning, this will cause errors on old versions of collect because uuid is not a function.
+            model_children.append(node("bind", nodeset="/"+self.name+"/meta/instanceID", type="string", readonly="true()", calculate="concat('uuid:', uuid())"))
         return node("model",  *model_children)
 
     def xml_instance(self):
@@ -95,9 +101,8 @@ class Survey(Section):
             result.setAttribute(u"xmlns", self.instance_xmlns)
         
         #We need to add a unique form instance id if the form is to be submitted.
-        if self.submission_url:
+        if not self.omit_instanceID or self.submission_url:
             result.appendChild(node("orx:meta", node("orx:instanceID")))
-            
         return result
 
     def _setup_translations(self):
@@ -108,7 +113,6 @@ class Survey(Section):
         for element in self.iter_descendants():
             for d in element.get_translations(self.default_language):
                 self._translations[d['lang']][d['path']] = {"long" : d['text']}
-        self._add_empty_translations()
 
     def _add_empty_translations(self):
         """
@@ -130,6 +134,8 @@ class Survey(Section):
             for path in paths:
                 if path not in d:
                     self._translations[lang][path] = {"long":u"-"}
+                if "long" not in d[path] and self.get("add_text_labels_to_image_only_questions", False):
+                    self._translations[lang][path]["long"] = u"-"
 
     def _setup_media(self):
         """
