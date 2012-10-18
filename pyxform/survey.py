@@ -35,7 +35,8 @@ class Survey(Section):
             u"_translations": dict,
             u"submission_url": unicode,
             u"public_key": unicode,
-            u"omit_instanceID": bool
+            u"omit_instanceID": bool,
+            u"instance_xmlns": unicode
             }
         )
         
@@ -94,7 +95,13 @@ class Survey(Section):
     def xml_instance(self):
         result = Section.xml_instance(self)
         result.setAttribute(u"id", self.id_string)
-        if not self.omit_instanceID:
+
+        #add instance xmlns attribute to the instance node
+        if self.instance_xmlns:
+            result.setAttribute(u"xmlns", self.instance_xmlns)
+        
+        #We need to add a unique form instance id if the form is to be submitted.
+        if not self.omit_instanceID or self.submission_url:
             result.appendChild(node("orx:meta", node("orx:instanceID")))
         return result
 
