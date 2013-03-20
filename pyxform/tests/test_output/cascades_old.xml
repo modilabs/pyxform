@@ -288,7 +288,7 @@
             <value>Maluke (MH-473)</value>
           </text>
           <text id="static_instance-name_list-3">
-            <value>Other </value>
+            <value>Other</value>
           </text>
           <text id="static_instance-yes_no_list-1">
             <value>No</value>
@@ -2821,7 +2821,7 @@
           <value>name3</value>
         </item>
         <item>
-          <label>Other </label>
+          <label>Other</label>
           <value>othername</value>
         </item>
       </select1>
