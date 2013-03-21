@@ -203,10 +203,10 @@ class SurveyElement(dict):
             if type(constraintMsg) is dict:
                 for lang, text in constraintMsg.items():
                     yield {
-                            'path': self._translation_path(u'jr:constraintMsg'),
-                            'lang': lang,
-                            'text': text,
-                           }
+                        'path': self._translation_path(u'jr:constraintMsg'),
+                        'lang': lang,
+                        'text': text
+                    }
         
         for display_element in [u'label', u'hint']:
             label_or_hint = self[display_element]
@@ -225,7 +225,7 @@ class SurveyElement(dict):
                         'element': self, #Not used
                         'lang': lang,
                         'text': text,
-                        }
+                    }
 
     def get_media_keys(self):
         """
@@ -242,7 +242,8 @@ class SurveyElement(dict):
     # XML generating functions, these probably need to be moved around.
     def xml_label(self):
         if self.needs_itext_ref():
-            #If there is a dictionary label, or non-empty media dict, then we need to make a label with an itext ref
+            #If there is a dictionary label, or non-empty media dict,
+            #then we need to make a label with an itext ref
             ref = "jr:itext('%s')" % self._translation_path(u"label")
             return node(u"label", ref=ref)
         else:
