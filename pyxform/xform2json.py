@@ -452,7 +452,12 @@ class XFormToDictBuilder:
                     if k == 'type':
                         v = self._get_question_type(v)
                     if k in ['relevant', 'required', 'constraint',
-                             'constraintMsg', 'readonly', 'calculate']:
+                             'constraintMsg', 'readonly', 'calculate',
+                             'noAppErrorString', 'requiredMsg']:
+                        if k == 'noAppErrorString':
+                            k = 'jr:noAppErrorString'
+                        if k == 'requiredMsg':
+                            k = 'jr:requiredMsg'
                         if k == 'constraintMsg':
                             k = "jr:constraintMsg"
                             v = self._get_constraintMsg(v)
@@ -594,12 +599,11 @@ class XFormToDictBuilder:
 
         def replace_function(match):
             return "${%s}" % get_last_item(match.group())
+        #moving re flags into compile for python 2.6 compat
         pattern = "( /[a-z0-9\-_]+(?:/[a-z0-9\-_]+)+ )"
-        text = re.sub(
-            pattern, replace_function, text, flags=re.I)
+        text = re.compile(pattern, flags=re.I).sub(replace_function, text)
         pattern = "(/[a-z0-9\-_]+(?:/[a-z0-9\-_]+)+)"
-        text = re.sub(
-            pattern, replace_function, text, flags=re.I)
+        text = re.compile(pattern, flags=re.I).sub(replace_function, text)
         return text
 
 

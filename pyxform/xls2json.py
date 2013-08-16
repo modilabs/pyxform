@@ -92,8 +92,10 @@ survey_header_aliases = {
     u"autoplay": u"control::autoplay",
     u"rows": u"control::rows",
     #New elements that have to go into itext elements:
-    #u"noAppErrorString" : u"itext::noAppErrorString",
-    #u"requiredMsg" : u"itext::requiredMsg",
+    u"noAppErrorString" : u"bind::jr:noAppErrorString",
+    u"no_app_error_string" : u"bind::jr:noAppErrorString",
+    u"requiredMsg" : u"bind::jr:requiredMsg",
+    u"required_message" : u"bind::jr:requiredMsg",
 }
 list_header_aliases = {
     u"caption": constants.LABEL,
@@ -331,6 +333,39 @@ def has_double_colon(workbook_dict):
                     return True
     return False
 
+def add_flat_annotations(prompt_list, parent_relevant = '', name_prefix = ''):
+    """
+    This is a helper function for generating flat instances 
+    for the benefit of ODK Tables.
+    It makes the following modifications to the survey:
+    X Renames prompts with their group name as a prefix
+      (Decided against chaning the names because it breaks formulas)
+      (However, there could be namespace collisions now.)
+    - "and"s group relevance formulas onto that of their children.
+    - Adds a flat property to groups
+      The flat property is used in the json2xform code
+    """
+    for prompt in prompt_list:
+        prompt_relevant = prompt.get('bind', {}).get('relevant', '')
+        new_relevant = ''
+        if parent_relevant != '':
+            new_relevant += parent_relevant
+            if prompt_relevant != '':
+                new_relevant += ' and (' + prompt_relevant + ')'
+        elif prompt_relevant != '':
+            new_relevant = prompt_relevant
+        
+        children = prompt.get(constants.CHILDREN)
+        if children:
+            prompt['flat'] = True
+            add_flat_annotations(children, new_relevant,
+                                 name_prefix + '_' + prompt['name'])
+        else:
+            if new_relevant != '':
+                prompt['bind'] = prompt.get('bind', {})
+                prompt['bind']['relevant'] = new_relevant
+            #if name_prefix != '':
+            #    prompt['name'] = name_prefix + prompt['name']
 
 def workbook_to_json(
         workbook_dict, form_name=None,
@@ -460,6 +495,7 @@ def workbook_to_json(
 
     choices = combined_lists
     #Make sure all the options have the required properties:
+    warnedabout = set()
     for list_name, options in choices.items():
         for option in options:
             if 'name' not in option:
@@ -471,7 +507,25 @@ def workbook_to_json(
                 warnings.append(
                     "On the choices sheet there is a option with no label. "
                     + info)
-
+            # chrislrobert's fix for a cryptic error message:
+            # see: https://code.google.com/p/opendatakit/issues/detail?id=833&start=200
+            for headername in option.keys():
+                # Using warnings and removing the bad columns
+                # instead of throwing errors because some forms
+                # use choices column headers for notes.
+                if ' ' in headername:
+                    if headername not in warnedabout:
+                        warnedabout.add(headername)
+                        warnings.append("On the choices sheet there is " +
+                                        "a column (\"" + 
+                                        headername + 
+                                        "\") with an illegal header. " +
+                                        "Headers cannot include spaces.")
+                    del option[headername]
+                elif headername == '':
+                    warnings.append("On the choices sheet there is a value" + 
+                                    " in a column with no header.")
+                    del option[headername]
     ########### Survey sheet ###########
     if constants.SURVEY not in workbook_dict:
         raise PyXFormError(
@@ -578,11 +632,12 @@ def workbook_to_json(
 
         #Make sure the row has a valid name
         if not constants.NAME in row:
-            # TODO: It could be slick if had nameless groups generate
-            #       a flat model with only a body element.
             if row['type'] == 'note':
                 #autogenerate names for notes without them
                 row['name'] = "generated_note_name_" + str(row_number)
+            # elif 'group' in row['type'].lower():
+            #     # autogenerate names for groups without them
+            #     row['name'] = "generated_group_name_" + str(row_number)
             else:
                 raise PyXFormError(rowFormatString % row_number +
                                    " Question or group with no name.")
@@ -832,6 +887,11 @@ def workbook_to_json(
 
     if len(stack) != 1:
         raise PyXFormError("Unmatched begin statement: " + str(stack[-1][0]))
+
+
+    if settings.get('flat', False):
+        #print "Generating flattened instance..."
+        add_flat_annotations(stack[0][1])
 
     meta_children = []
 
