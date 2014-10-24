@@ -40,8 +40,15 @@ def run_popen_with_timeout(command, timeout):
     return (p.returncode, timeout, stdout, stderr)
 
 def _java_installed():
-    p = Popen(["which","java"], stdout=PIPE)
-    return len(p.stdout.readlines()) != 0
+    if os.name == "nt":
+        p = Popen(["where","java"], stdout=PIPE)
+        try:
+            return p.stdout.readlines()[0].find("INFO:") == -1
+        except:
+            return False
+    else:
+        p = Popen(["which","java"], stdout=PIPE)
+        return len(p.stdout.readlines()) != 0
 
 def _cleanup_errors(error_message):
     def get_last_item(xpathStr):
@@ -104,7 +111,6 @@ def check_xform(path_to_xform):
     returncode, timeout, stdout, stderr = run_popen_with_timeout(
         ["java", "-jar", ODK_VALIDATE_JAR, path_to_xform], 100)
     warnings = []
-
     if timeout:
         return ["XForm took to long to completely validate."]
     else:

@@ -394,9 +394,16 @@ class Survey(Section):
             warnings.extend(check_xform(path))
 
     def to_xml(self, validate=True, pretty=True):
-        with tempfile.NamedTemporaryFile() as tmp:
-            # this will throw an exception if the xml is not valid
-            self.print_xform_to_file(tmp.name)
+        #windows cannot create a tempfile then open it again
+        tmp = tempfile.NamedTemporaryFile(delete=False)
+        tmpfilename = tmp.name
+        tmp.close()
+        self.print_xform_to_file(tmpfilename)
+        os.unlink(tmpfilename)
+
+        # with tempfile.NamedTemporaryFile() as tmp:
+        #     # this will throw an exception if the xml is not valid
+        #     self.print_xform_to_file(tmp.name)
         return self._to_pretty_xml()
 
     def instantiate(self):
